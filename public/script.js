@@ -21,6 +21,41 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
 
+// 加载文件列表
+async function loadFileList() {
+    try {
+        const uploadedFilesContainer = document.getElementById('uploadedFiles');
+        uploadedFilesContainer.innerHTML = '<p class="loading">正在加载文件列表...</p>';
+        
+        const response = await fetch('/api/files');
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+            const html = result.data.map(file => `
+                <div class="uploaded-file-item">
+                    <div class="uploaded-file-info">
+                        <div class="uploaded-file-name">${file.originalName}</div>
+                        <div class="uploaded-file-meta">
+                            大小: ${formatFileSize(file.size)} | 
+                            上传时间: ${new Date(file.uploadTime).toLocaleString('zh-CN')}
+                        </div>
+                    </div>
+                    <a href="/api/files/${file.filename}" class="download-btn" download="${file.originalName}">
+                        📥 下载
+                    </a>
+                </div>
+            `).join('');
+            uploadedFilesContainer.innerHTML = html;
+        } else {
+            uploadedFilesContainer.innerHTML = '<p class="no-files">暂无上传的文件</p>';
+        }
+    } catch (error) {
+        console.error('加载文件列表失败:', error);
+        document.getElementById('uploadedFiles').innerHTML = '<p class="no-files">加载文件列表失败，请重试</p>';
+        showMessage('加载文件列表失败', 'error');
+    }
+}
+
 // 标签切换功能
 function switchTab(tabName) {
     // 移除所有活动状态
@@ -51,6 +86,21 @@ function initializeApp() {
     setupDateDefault();
     // 默认加载待处理任务
     loadPendingTasks();
+    // 加载文件列表
+    loadFileList();
+    // 设置刷新文件列表按钮
+    setupFileRefresh();
+}
+
+// 设置文件刷新功能
+function setupFileRefresh() {
+    const refreshBtn = document.getElementById('refreshFiles');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadFileList();
+            showMessage('文件列表已刷新', 'success');
+        });
+    }
 }
 
 // 设置表单提交

@@ -91,6 +91,20 @@
                 </div>
             </section>
 
+            <!-- 文件管理区域 -->
+            <section class="file-management-section">
+                <h2>📁 文件管理</h2>
+                <div class="file-management-content">
+                    <div class="file-management-header">
+                        <span>已上传的文件</span>
+                        <button class="refresh-btn" onclick="loadFileList()">🔄 刷新</button>
+                    </div>
+                    <div class="uploaded-files" id="uploadedFiles">
+                        <p class="loading">正在加载文件列表...</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- Inbox完整内容区域 -->
             <section class="inbox-content-section">
                 <h2>📂 Inbox完整内容</h2>
