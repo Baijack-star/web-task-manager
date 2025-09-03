@@ -102,6 +102,107 @@ input, textarea, select {
     transition: border-color 0.3s ease;
 }
 
+/* 文件上传样式 */
+.file-upload-area {
+    position: relative;
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    background: #f7fafc;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.file-upload-area:hover {
+    border-color: #667eea;
+    background: #ebf8ff;
+}
+
+.file-upload-area.dragover {
+    border-color: #667eea;
+    background: #ebf8ff;
+    transform: scale(1.02);
+}
+
+#taskAttachments {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-hint {
+    pointer-events: none;
+}
+
+.upload-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.upload-hint p {
+    margin: 5px 0;
+    color: #4a5568;
+}
+
+.upload-limit {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.file-list {
+    margin-top: 15px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 500;
+    color: #4a5568;
+}
+
+.file-size {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.file-remove {
+    background: #f56565;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.file-remove:hover {
+    background: #e53e3e;
+}
+}
+
 input:focus, textarea:focus, select:focus {
     outline: none;
     border-color: #667eea;
@@ -249,6 +350,152 @@ textarea {
     background: #4299e1;
 }
 
+/* Inbox内容展示区域 */
+.inbox-content-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+}
+
+.content-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    color: #718096;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-btn:hover {
+    background: #f7fafc;
+    color: #4a5568;
+}
+
+.tab-btn.active {
+    color: #4299e1;
+    background: #ebf8ff;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #4299e1;
+}
+
+.inbox-content {
+    min-height: 300px;
+    position: relative;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.raw-content {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.task-section {
+    margin-bottom: 25px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.task-section h3 {
+    color: #2d3748;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #4299e1;
+    padding-bottom: 8px;
+}
+
+.task-section h4 {
+    color: #4a5568;
+    margin: 15px 0 10px 0;
+    font-size: 1.1rem;
+}
+
+.task-section p {
+    color: #718096;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.task-section ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.task-section li {
+    color: #4a5568;
+    margin-bottom: 5px;
+    line-height: 1.5;
+}
+
+.loading {
+    text-align: center;
+    color: #a0aec0;
+    font-style: italic;
+    padding: 40px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+.status-completed {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.status-pending {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
 /* 底部样式 */
 footer {
     text-align: center;
@@ -288,6 +535,21 @@ footer {
     
     .message-toast.show {
         transform: translateY(0);
+    }
+    
+    .content-tabs {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .tab-btn {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .raw-content {
+        font-size: 0.8rem;
+        padding: 15px;
     }
 }
 

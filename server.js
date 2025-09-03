@@ -4,23 +4,60 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const multer = require('multer');
 
 // 配置
 const config = {
-    port: process.env.PORT || 3000,
-    inboxPath: process.env.INBOX_PATH || path.join(__dirname, '..', 'inbox.md'),
-    outboxPath: process.env.OUTBOX_PATH || path.join(__dirname, '..', 'outbox.md'),
-    corsOrigin: process.env.CORS_ORIGIN || '*',
-    logLevel: process.env.LOG_LEVEL || 'info',
-    wsHeartbeat: parseInt(process.env.WS_HEARTBEAT_INTERVAL) || 30000,
-    rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
-    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100
+  port: process.env.PORT || 3000,
+  // 默认指向上级目录（工作目录）的inbox.md和outbox.md
+  inboxPath: process.env.INBOX_PATH || path.join(__dirname, '..', 'inbox.md'),
+  outboxPath: process.env.OUTBOX_PATH || path.join(__dirname, '..', 'outbox.md'),
+  uploadsPath: path.join(__dirname, 'uploads'),
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+  logLevel: process.env.LOG_LEVEL || 'info',
+  wsHeartbeat: parseInt(process.env.WS_HEARTBEAT) || 30000,
+  rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW) || 900000,
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX) || 100
 };
 
 // 创建Express应用
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// 文件上传配置
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // 确保uploads目录存在
+    if (!fs.existsSync(config.uploadsPath)) {
+      fs.mkdirSync(config.uploadsPath, { recursive: true });
+    }
+    cb(null, config.uploadsPath);
+  },
+  filename: function (req, file, cb) {
+    // 生成唯一文件名：时间戳_原文件名
+    const timestamp = Date.now();
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    cb(null, `${timestamp}_${originalName}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB限制
+    files: 5 // 最多5个文件
+  },
+  fileFilter: function (req, file, cb) {
+    // 允许的文件类型
+    const allowedTypes = /\.(jpg|jpeg|png|gif|pdf|doc|docx|txt|zip|rar|xlsx|xls|ppt|pptx)$/i;
+    if (allowedTypes.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('不支持的文件类型'));
+    }
+  }
+});
 
 // 中间件
 app.use(cors({
@@ -29,6 +66,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
+// 静态文件服务 - 用于文件下载
+app.use('/uploads', express.static(config.uploadsPath));
 
 // 生产环境安全头
 if (process.env.NODE_ENV === 'production') {
@@ -59,6 +98,14 @@ function formatTaskForMarkdown(taskData) {
     const expected = taskData.expected || '无特殊要求';
     const notes = taskData.notes || '无';
     
+    let attachmentSection = '';
+    if (taskData.attachments && taskData.attachments.length > 0) {
+        attachmentSection = '\n**附件**:\n';
+        taskData.attachments.forEach(file => {
+            attachmentSection += `- [${file.originalName}](/uploads/${file.filename}) (${(file.size / 1024).toFixed(1)}KB)\n`;
+        });
+    }
+    
     return `
 ### 任务 ${taskId} - ${taskData.title}
 **优先级**: ${taskData.priority}
@@ -72,7 +119,7 @@ ${taskData.description}
 ${expected}
 
 **备注**:
-${notes}
+${notes}${attachmentSection}
 
 ---
 `;
@@ -143,6 +190,163 @@ function appendToFile(filePath, content) {
     }
 }
 
+// 解析inbox.md内容
+function parseInboxContent(content) {
+    const result = {
+        pendingTasks: [],
+        completedTasks: []
+    };
+    
+    try {
+        // 分割内容为不同部分
+        const sections = content.split(/^## /m);
+        
+        sections.forEach(section => {
+            const lines = section.trim().split('\n');
+            const sectionTitle = lines[0];
+            
+            if (sectionTitle && sectionTitle.includes('待处理任务')) {
+                // 解析待处理任务
+                result.pendingTasks = parsePendingTasks(section);
+            } else if (sectionTitle && sectionTitle.includes('已处理任务')) {
+                // 解析已处理任务
+                result.completedTasks = parseCompletedTasks(section);
+            }
+        });
+        
+    } catch (error) {
+        log(`解析inbox内容失败: ${error.message}`);
+    }
+    
+    return result;
+}
+
+// 解析待处理任务
+function parsePendingTasks(section) {
+    const tasks = [];
+    const lines = section.split('\n');
+    let currentTask = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // 检测任务标题（以###开头）
+        if (line.startsWith('### ')) {
+            if (currentTask) {
+                tasks.push(currentTask);
+            }
+            currentTask = {
+                title: line.replace('### ', '').trim(),
+                description: '',
+                priority: '',
+                deadline: '',
+                expected: '',
+                notes: ''
+            };
+        } else if (currentTask) {
+            // 解析任务属性
+            if (line.startsWith('**优先级**:')) {
+                currentTask.priority = line.replace('**优先级**:', '').trim();
+            } else if (line.startsWith('**截止时间**:')) {
+                currentTask.deadline = line.replace('**截止时间**:', '').trim();
+            } else if (line.startsWith('**任务描述**:')) {
+                currentTask.description = line.replace('**任务描述**:', '').trim();
+            } else if (line.startsWith('**预期结果**:')) {
+                currentTask.expected = line.replace('**预期结果**:', '').trim();
+            } else if (line.startsWith('**备注**:')) {
+                currentTask.notes = line.replace('**备注**:', '').trim();
+            } else if (line && !line.startsWith('**') && !line.startsWith('---')) {
+                // 如果是普通文本且不是属性行，添加到描述中
+                if (currentTask.description) {
+                    currentTask.description += ' ' + line;
+                } else {
+                    currentTask.description = line;
+                }
+            }
+        }
+    }
+    
+    if (currentTask) {
+        tasks.push(currentTask);
+    }
+    
+    return tasks;
+}
+
+// 解析已处理任务
+function parseCompletedTasks(section) {
+    const tasks = [];
+    const lines = section.split('\n');
+    let currentTask = null;
+    let inDeliverables = false;
+    let inTechImplementation = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // 检测任务标题（以###开头）
+        if (line.startsWith('### ')) {
+            if (currentTask) {
+                tasks.push(currentTask);
+            }
+            currentTask = {
+                title: line.replace('### ', '').replace(/\s*✅\s*$/, '').trim(),
+                description: '',
+                priority: '',
+                completedTime: '',
+                deliverables: [],
+                techImplementation: []
+            };
+            inDeliverables = false;
+            inTechImplementation = false;
+        } else if (currentTask) {
+            // 解析任务属性
+            if (line.startsWith('**优先级**:')) {
+                currentTask.priority = line.replace('**优先级**:', '').trim();
+            } else if (line.startsWith('**完成时间**:')) {
+                currentTask.completedTime = line.replace('**完成时间**:', '').trim();
+            } else if (line.startsWith('**任务描述**:')) {
+                currentTask.description = line.replace('**任务描述**:', '').trim();
+                inDeliverables = false;
+                inTechImplementation = false;
+            } else if (line.startsWith('**交付成果**:')) {
+                inDeliverables = true;
+                inTechImplementation = false;
+            } else if (line.startsWith('**技术实现**:')) {
+                inTechImplementation = true;
+                inDeliverables = false;
+            } else if (line.startsWith('- ✅')) {
+                const item = line.replace('- ✅', '').trim();
+                if (inDeliverables) {
+                    currentTask.deliverables.push(item);
+                } else if (inTechImplementation) {
+                    currentTask.techImplementation.push(item);
+                }
+            } else if (line.startsWith('-')) {
+                const item = line.replace('-', '').trim();
+                if (inDeliverables) {
+                    currentTask.deliverables.push(item);
+                } else if (inTechImplementation) {
+                    currentTask.techImplementation.push(item);
+                }
+            } else if (line && !line.startsWith('**') && !line.startsWith('---') && !inDeliverables && !inTechImplementation) {
+                // 如果是普通文本且不在列表中，添加到描述中
+                if (currentTask.description) {
+                    currentTask.description += ' ' + line;
+                } else {
+                    currentTask.description = line;
+                }
+            }
+        }
+    }
+    
+    if (currentTask) {
+        tasks.push(currentTask);
+    }
+    
+    return tasks;
+}
+
 // WebSocket连接处理
 wss.on('connection', function connection(ws, request) {
     log(`新的WebSocket连接: ${request.socket.remoteAddress}`);
@@ -208,12 +412,13 @@ app.get('/api/tasks', (req, res) => {
     }
 });
 
-// 添加新任务
-app.post('/api/tasks', (req, res) => {
+// 添加新任务（支持文件上传）
+app.post('/api/tasks', upload.array('attachments', 5), (req, res) => {
     try {
         log('收到添加任务请求');
         
         const taskData = req.body;
+        const files = req.files || [];
         
         // 验证数据
         const validation = validateTaskData(taskData);
@@ -224,6 +429,14 @@ app.post('/api/tasks', (req, res) => {
             });
         }
         
+        // 处理上传的文件
+        const attachments = files.map(file => ({
+            originalName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
+            filename: file.filename,
+            size: file.size,
+            mimetype: file.mimetype
+        }));
+        
         // 清理输入数据
         const cleanTaskData = {
             title: sanitizeInput(taskData.title),
@@ -231,7 +444,8 @@ app.post('/api/tasks', (req, res) => {
             priority: taskData.priority || '中',
             deadline: taskData.deadline || '',
             expected: sanitizeInput(taskData.expected || ''),
-            notes: sanitizeInput(taskData.notes || '')
+            notes: sanitizeInput(taskData.notes || ''),
+            attachments: attachments
         };
         
         // 格式化任务为Markdown
@@ -266,14 +480,96 @@ app.post('/api/tasks', (req, res) => {
         
         res.json({
             success: true,
-            message: '任务添加成功'
+            message: '任务添加成功',
+            attachments: cleanTaskData.attachments
         });
         
     } catch (error) {
         log(`添加任务失败: ${error.message}`);
+        // 如果任务添加失败，删除已上传的文件
+        if (req.files) {
+            req.files.forEach(file => {
+                try {
+                    fs.unlinkSync(file.path);
+                } catch (deleteError) {
+                    log(`删除文件失败: ${deleteError.message}`);
+                }
+            });
+        }
         res.status(500).json({
             success: false,
             message: '添加任务失败，请重试'
+        });
+    }
+});
+
+// 文件下载API
+app.get('/api/files/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        const filePath = path.join(config.uploadsPath, filename);
+        
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: '文件不存在'
+            });
+        }
+        
+        // 获取原始文件名（去掉时间戳前缀）
+        const originalName = filename.replace(/^\d+_/, '');
+        
+        // 设置下载头
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(originalName)}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        
+        // 发送文件
+        res.sendFile(filePath);
+        
+    } catch (error) {
+        log(`文件下载失败: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: '文件下载失败'
+        });
+    }
+});
+
+// 获取文件列表API
+app.get('/api/files', (req, res) => {
+    try {
+        if (!fs.existsSync(config.uploadsPath)) {
+            return res.json({
+                success: true,
+                data: []
+            });
+        }
+        
+        const files = fs.readdirSync(config.uploadsPath).map(filename => {
+            const filePath = path.join(config.uploadsPath, filename);
+            const stats = fs.statSync(filePath);
+            const originalName = filename.replace(/^\d+_/, '');
+            
+            return {
+                filename: filename,
+                originalName: originalName,
+                size: stats.size,
+                uploadTime: stats.birthtime,
+                downloadUrl: `/api/files/${filename}`
+            };
+        });
+        
+        res.json({
+            success: true,
+            data: files
+        });
+        
+    } catch (error) {
+        log(`获取文件列表失败: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: '获取文件列表失败'
         });
     }
 });
@@ -295,6 +591,49 @@ app.get('/api/status', (req, res) => {
         res.status(500).json({
             success: false,
             message: '获取状态失败'
+        });
+    }
+});
+
+// 获取inbox结构化内容
+app.get('/api/inbox-content', (req, res) => {
+    try {
+        log('获取inbox内容请求');
+        
+        const inboxContent = readFile(config.inboxPath);
+        const parsedContent = parseInboxContent(inboxContent);
+        
+        res.json({
+            success: true,
+            data: parsedContent,
+            message: '获取inbox内容成功'
+        });
+    } catch (error) {
+        log(`获取inbox内容失败: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: '获取inbox内容失败'
+        });
+    }
+});
+
+// 获取inbox原始内容
+app.get('/api/inbox-raw', (req, res) => {
+    try {
+        log('获取inbox原始内容请求');
+        
+        const inboxContent = readFile(config.inboxPath);
+        
+        res.json({
+            success: true,
+            data: inboxContent,
+            message: '获取inbox原始内容成功'
+        });
+    } catch (error) {
+        log(`获取inbox原始内容失败: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: '获取inbox原始内容失败'
         });
     }
 });
@@ -356,12 +695,14 @@ function watchOutboxFile() {
 }
 
 // 启动服务器
-server.listen(config.port, () => {
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+server.listen(config.port, host, () => {
     log(`服务器启动成功`);
-    log(`HTTP服务: http://localhost:${config.port}`);
-    log(`WebSocket服务: ws://localhost:${config.port}`);
+    log(`HTTP服务: http://${host}:${config.port}`);
+    log(`WebSocket服务: ws://${host}:${config.port}`);
     log(`Inbox文件: ${config.inboxPath}`);
     log(`Outbox文件: ${config.outboxPath}`);
+    log(`环境: ${process.env.NODE_ENV || 'development'}`);
     
     // 开始监控文件变化
     watchOutboxFile();

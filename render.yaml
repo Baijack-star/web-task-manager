@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: web-task-manager
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: INBOX_PATH
+        value: ./inbox.md
+      - key: OUTBOX_PATH
+        value: ./outbox.md
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: PORT
+        generateValue: true
+    healthCheckPath: /
+    autoDeploy: true

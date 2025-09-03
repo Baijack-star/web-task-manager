@@ -9,18 +9,48 @@ const statusDot = document.getElementById('statusDot');
 const connectionStatus = document.getElementById('connectionStatus');
 const taskHistoryContainer = document.getElementById('taskHistory');
 const messageToast = document.getElementById('messageToast');
+const fileUploadArea = document.getElementById('fileUploadArea');
+const fileInput = document.getElementById('taskAttachments');
+const fileList = document.getElementById('fileList');
+
+// 文件上传相关变量
+let selectedFiles = [];
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
 
+// 标签切换功能
+function switchTab(tabName) {
+    // 移除所有活动状态
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // 激活选中的标签
+    event.target.classList.add('active');
+    document.getElementById(tabName === 'pending' ? 'pendingTasks' : 
+                          tabName === 'completed' ? 'completedTasks' : 'rawContent').classList.add('active');
+    
+    // 如果是第一次加载该标签，则加载内容
+    if (tabName === 'pending' && !document.getElementById('pendingTasks').dataset.loaded) {
+        loadPendingTasks();
+    } else if (tabName === 'completed' && !document.getElementById('completedTasks').dataset.loaded) {
+        loadCompletedTasks();
+    } else if (tabName === 'raw' && !document.getElementById('rawContent').dataset.loaded) {
+        loadRawContent();
+    }
+}
+
 // 初始化应用
 function initializeApp() {
     setupFormSubmission();
+    setupFileUpload();
     connectWebSocket();
     loadInitialData();
     setupDateDefault();
+    // 默认加载待处理任务
+    loadPendingTasks();
 }
 
 // 设置表单提交
@@ -28,24 +58,29 @@ function setupFormSubmission() {
     taskForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const formData = new FormData(taskForm);
-        const taskData = {
-            title: formData.get('title').trim(),
-            description: formData.get('description').trim(),
-            priority: formData.get('priority'),
-            deadline: formData.get('deadline'),
-            expected: formData.get('expected').trim(),
-            notes: formData.get('notes').trim()
-        };
+        const formData = new FormData();
+        
+        // 添加表单字段
+        formData.append('title', document.getElementById('taskTitle').value.trim());
+        formData.append('description', document.getElementById('taskDescription').value.trim());
+        formData.append('priority', document.getElementById('taskPriority').value);
+        formData.append('deadline', document.getElementById('taskDeadline').value);
+        formData.append('expected', document.getElementById('taskExpected').value.trim());
+        formData.append('notes', document.getElementById('taskNotes').value.trim());
+        
+        // 添加文件
+        selectedFiles.forEach(file => {
+            formData.append('attachments', file);
+        });
         
         // 验证必填字段
-        if (!taskData.title || !taskData.description) {
+        if (!formData.get('title') || !formData.get('description')) {
             showMessage('请填写任务标题和描述', 'error');
             return;
         }
         
         try {
-            await submitTask(taskData);
+            await submitTaskWithFiles(formData);
         } catch (error) {
             console.error('提交任务失败:', error);
             showMessage('提交任务失败，请重试', 'error');
@@ -53,15 +88,12 @@ function setupFormSubmission() {
     });
 }
 
-// 提交任务
-async function submitTask(taskData) {
+// 提交任务（支持文件上传）
+async function submitTaskWithFiles(formData) {
     try {
         const response = await fetch('/api/tasks', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(taskData)
+            body: formData // 不设置Content-Type，让浏览器自动设置multipart/form-data
         });
         
         const result = await response.json();
@@ -69,7 +101,19 @@ async function submitTask(taskData) {
         if (result.success) {
             showMessage('任务提交成功！', 'success');
             taskForm.reset();
+            clearFileList();
             setupDateDefault();
+            
+            // 添加到历史记录
+            const taskData = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                priority: formData.get('priority'),
+                deadline: formData.get('deadline'),
+                expected: formData.get('expected'),
+                notes: formData.get('notes'),
+                attachments: result.attachments || []
+            };
             addTaskToHistory(taskData);
         } else {
             throw new Error(result.message || '提交失败');
@@ -232,6 +276,222 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// 加载待处理任务
+async function loadPendingTasks() {
+    try {
+        const response = await fetch('/api/inbox-content');
+        const result = await response.json();
+        
+        if (result.success) {
+            const pendingContainer = document.getElementById('pendingTasks');
+            const pendingTasks = result.data.pendingTasks;
+            
+            if (pendingTasks && pendingTasks.length > 0) {
+                pendingContainer.innerHTML = pendingTasks.map(task => `
+                    <div class="task-section">
+                        <h4>${escapeHtml(task.title)} <span class="status-badge status-pending">待处理</span></h4>
+                        <p><strong>描述:</strong> ${escapeHtml(task.description)}</p>
+                        ${task.priority ? `<p><strong>优先级:</strong> ${escapeHtml(task.priority)}</p>` : ''}
+                        ${task.deadline ? `<p><strong>截止时间:</strong> ${escapeHtml(task.deadline)}</p>` : ''}
+                        ${task.expected ? `<p><strong>预期结果:</strong> ${escapeHtml(task.expected)}</p>` : ''}
+                        ${task.notes ? `<p><strong>备注:</strong> ${escapeHtml(task.notes)}</p>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                pendingContainer.innerHTML = '<p class="loading">目前没有待处理任务</p>';
+            }
+            
+            pendingContainer.dataset.loaded = 'true';
+        }
+    } catch (error) {
+        console.error('加载待处理任务失败:', error);
+        document.getElementById('pendingTasks').innerHTML = '<p class="loading">加载失败，请稍后重试</p>';
+    }
+}
+
+// 加载已处理任务
+async function loadCompletedTasks() {
+    try {
+        const response = await fetch('/api/inbox-content');
+        const result = await response.json();
+        
+        if (result.success) {
+            const completedContainer = document.getElementById('completedTasks');
+            const completedTasks = result.data.completedTasks;
+            
+            if (completedTasks && completedTasks.length > 0) {
+                completedContainer.innerHTML = completedTasks.map(task => `
+                    <div class="task-section">
+                        <h4>${escapeHtml(task.title)} <span class="status-badge status-completed">已完成</span></h4>
+                        <p><strong>完成时间:</strong> ${escapeHtml(task.completedTime || '未知')}</p>
+                        <p><strong>描述:</strong> ${escapeHtml(task.description)}</p>
+                        ${task.priority ? `<p><strong>优先级:</strong> ${escapeHtml(task.priority)}</p>` : ''}
+                        ${task.deliverables ? `
+                            <div>
+                                <strong>交付成果:</strong>
+                                <ul>
+                                    ${task.deliverables.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        ${task.techImplementation ? `
+                            <div>
+                                <strong>技术实现:</strong>
+                                <ul>
+                                    ${task.techImplementation.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } else {
+                completedContainer.innerHTML = '<p class="loading">暂无已处理任务</p>';
+            }
+            
+            completedContainer.dataset.loaded = 'true';
+        }
+    } catch (error) {
+        console.error('加载已处理任务失败:', error);
+        document.getElementById('completedTasks').innerHTML = '<p class="loading">加载失败，请稍后重试</p>';
+    }
+}
+
+// 加载原始内容
+async function loadRawContent() {
+    try {
+        const response = await fetch('/api/inbox-raw');
+        const result = await response.json();
+        
+        if (result.success) {
+            const rawContainer = document.getElementById('rawContent');
+            rawContainer.innerHTML = `<pre class="raw-content">${escapeHtml(result.data)}</pre>`;
+            rawContainer.dataset.loaded = 'true';
+        }
+    } catch (error) {
+        console.error('加载原始内容失败:', error);
+        document.getElementById('rawContent').innerHTML = '<pre class="raw-content">加载失败，请稍后重试</pre>';
+    }
+}
+
+// 设置文件上传功能
+function setupFileUpload() {
+    // 文件选择事件
+    fileInput.addEventListener('change', function(e) {
+        handleFileSelect(e.target.files);
+    });
+    
+    // 拖拽上传
+    fileUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.add('dragover');
+    });
+    
+    fileUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+    });
+    
+    fileUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+        handleFileSelect(e.dataTransfer.files);
+    });
+}
+
+// 处理文件选择
+function handleFileSelect(files) {
+    const maxFiles = 5;
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 
+                         'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                         'text/plain', 'application/zip', 'application/x-rar-compressed',
+                         'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+    
+    // 检查文件数量
+    if (selectedFiles.length + files.length > maxFiles) {
+        showMessage(`最多只能上传${maxFiles}个文件`, 'error');
+        return;
+    }
+    
+    // 验证每个文件
+    for (let file of files) {
+        // 检查文件大小
+        if (file.size > maxSize) {
+            showMessage(`文件 "${file.name}" 超过10MB限制`, 'error');
+            continue;
+        }
+        
+        // 检查文件类型
+        if (!allowedTypes.includes(file.type) && !isAllowedExtension(file.name)) {
+            showMessage(`文件 "${file.name}" 类型不支持`, 'error');
+            continue;
+        }
+        
+        // 检查是否已存在
+        if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+            showMessage(`文件 "${file.name}" 已存在`, 'warning');
+            continue;
+        }
+        
+        selectedFiles.push(file);
+    }
+    
+    updateFileList();
+    fileInput.value = ''; // 清空input，允许重复选择同一文件
+}
+
+// 检查文件扩展名
+function isAllowedExtension(filename) {
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', 
+                              '.txt', '.zip', '.rar', '.xlsx', '.xls', '.ppt', '.pptx'];
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+    return allowedExtensions.includes(ext);
+}
+
+// 更新文件列表显示
+function updateFileList() {
+    if (selectedFiles.length === 0) {
+        fileList.innerHTML = '';
+        return;
+    }
+    
+    const html = selectedFiles.map((file, index) => `
+        <div class="file-item">
+            <div class="file-info">
+                <span class="file-name">${file.name}</span>
+                <span class="file-size">(${formatFileSize(file.size)})</span>
+            </div>
+            <button type="button" class="file-remove" onclick="removeFile(${index})">
+                删除
+            </button>
+        </div>
+    `).join('');
+    
+    fileList.innerHTML = html;
+}
+
+// 删除文件
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFileList();
+}
+
+// 清空文件列表
+function clearFileList() {
+    selectedFiles = [];
+    updateFileList();
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 // 页面卸载时关闭WebSocket连接

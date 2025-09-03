@@ -54,6 +54,19 @@
                         <textarea id="taskNotes" name="notes" placeholder="任何额外信息或约束条件" rows="2"></textarea>
                     </div>
 
+                    <div class="form-group">
+                        <label for="taskAttachments">📎 附件上传</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <input type="file" id="taskAttachments" name="attachments" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.zip,.rar,.xlsx,.xls,.ppt,.pptx">
+                            <div class="upload-hint">
+                                <span class="upload-icon">📁</span>
+                                <p>点击选择文件或拖拽文件到此处</p>
+                                <p class="upload-limit">支持：图片、文档、压缩包等，单个文件最大10MB，最多5个文件</p>
+                            </div>
+                        </div>
+                        <div class="file-list" id="fileList"></div>
+                    </div>
+
                     <button type="submit" class="submit-btn">🚀 提交任务</button>
                 </form>
             </section>
@@ -75,6 +88,27 @@
                 <h2>📋 最近添加的任务</h2>
                 <div class="task-history" id="taskHistory">
                     <p class="no-tasks">暂无任务历史</p>
+                </div>
+            </section>
+
+            <!-- Inbox完整内容区域 -->
+            <section class="inbox-content-section">
+                <h2>📂 Inbox完整内容</h2>
+                <div class="content-tabs">
+                    <button class="tab-btn active" onclick="switchTab('pending')">待处理任务</button>
+                    <button class="tab-btn" onclick="switchTab('completed')">已处理任务</button>
+                    <button class="tab-btn" onclick="switchTab('raw')">原始内容</button>
+                </div>
+                <div class="inbox-content" id="inboxContent">
+                    <div id="pendingTasks" class="tab-content active">
+                        <p class="loading">正在加载待处理任务...</p>
+                    </div>
+                    <div id="completedTasks" class="tab-content">
+                        <p class="loading">正在加载已处理任务...</p>
+                    </div>
+                    <div id="rawContent" class="tab-content">
+                        <pre class="raw-content">正在加载原始内容...</pre>
+                    </div>
                 </div>
             </section>
         </main>
