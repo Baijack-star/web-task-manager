@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能体任务管理系统</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 智能体任务管理系统</h1>
+            <p>通过此界面添加任务并实时查看智能体工作状态</p>
+        </header>
+
+        <main>
+            <!-- 任务添加区域 -->
+            <section class="task-form-section">
+                <h2>📝 添加新任务</h2>
+                <form id="taskForm" class="task-form">
+                    <div class="form-group">
+                        <label for="taskTitle">任务标题 *</label>
+                        <input type="text" id="taskTitle" name="title" required placeholder="请输入任务标题">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskDescription">任务描述 *</label>
+                        <textarea id="taskDescription" name="description" required placeholder="详细描述任务内容和要求" rows="4"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskPriority">优先级</label>
+                            <select id="taskPriority" name="priority">
+                                <option value="中">中</option>
+                                <option value="高">高</option>
+                                <option value="低">低</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskDeadline">截止时间</label>
+                            <input type="date" id="taskDeadline" name="deadline">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskExpected">预期结果</label>
+                        <textarea id="taskExpected" name="expected" placeholder="描述期望的交付成果" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskNotes">备注</label>
+                        <textarea id="taskNotes" name="notes" placeholder="任何额外信息或约束条件" rows="2"></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-btn">🚀 提交任务</button>
+                </form>
+            </section>
+
+            <!-- 智能体状态区域 -->
+            <section class="status-section">
+                <h2>📊 智能体工作状态</h2>
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="connectionStatus">连接中...</span>
+                </div>
+                <div class="status-content" id="statusContent">
+                    <p>正在加载智能体状态...</p>
+                </div>
+            </section>
+
+            <!-- 任务历史区域 -->
+            <section class="history-section">
+                <h2>📋 最近添加的任务</h2>
+                <div class="task-history" id="taskHistory">
+                    <p class="no-tasks">暂无任务历史</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 智能体任务管理系统 | 实时同步 | 自动化协作</p>
+        </footer>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="messageToast" class="message-toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

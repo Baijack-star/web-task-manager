@@ -1,0 +1,29 @@
+{
+  "name": "web-task-manager",
+  "version": "1.0.0",
+  "description": "Web应用用于管理智能体任务和状态同步",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo \"No build step required\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "task-management",
+    "agent",
+    "web-app",
+    "real-time"
+  ],
+  "author": "AI Agent",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
