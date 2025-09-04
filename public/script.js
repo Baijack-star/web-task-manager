@@ -347,6 +347,14 @@ async function loadPendingTasks() {
                         ${task.deadline ? `<p><strong>截止时间:</strong> ${escapeHtml(task.deadline)}</p>` : ''}
                         ${task.expected ? `<p><strong>预期结果:</strong> ${escapeHtml(task.expected)}</p>` : ''}
                         ${task.notes ? `<p><strong>备注:</strong> ${escapeHtml(task.notes)}</p>` : ''}
+                        ${task.attachments && task.attachments.length > 0 ? `
+                            <div>
+                                <strong>附件:</strong>
+                                <ul>
+                                    ${task.attachments.map(att => `<li><a href="${att.url}" download="${att.name}">${escapeHtml(att.name)}</a></li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
             } else {

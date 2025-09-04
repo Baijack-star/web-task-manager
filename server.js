@@ -241,7 +241,8 @@ function parsePendingTasks(section) {
                 priority: '',
                 deadline: '',
                 expected: '',
-                notes: ''
+                notes: '',
+                attachments: []
             };
         } else if (currentTask) {
             // 解析任务属性
@@ -255,7 +256,18 @@ function parsePendingTasks(section) {
                 currentTask.expected = line.replace('**预期结果**:', '').trim();
             } else if (line.startsWith('**备注**:')) {
                 currentTask.notes = line.replace('**备注**:', '').trim();
-            } else if (line && !line.startsWith('**') && !line.startsWith('---')) {
+            } else if (line.startsWith('**附件**:')) {
+                // 附件部分开始，下面的行将是附件链接
+            } else if (line.startsWith('- [') && line.includes('](/uploads/')) {
+                // 解析附件链接: - [filename](/uploads/actualfile) (size)
+                const match = line.match(/- \[([^\]]+)\]\(([^\)]+)\)/);
+                if (match) {
+                    currentTask.attachments.push({
+                        name: match[1],
+                        url: match[2]
+                    });
+                }
+            } else if (line && !line.startsWith('**') && !line.startsWith('---') && !line.startsWith('- [')) {
                 // 如果是普通文本且不是属性行，添加到描述中
                 if (currentTask.description) {
                     currentTask.description += ' ' + line;
