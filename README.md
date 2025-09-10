@@ -115,8 +115,8 @@ web-task-manager/
 ### 环境变量
 
 - `PORT` - 服务器端口（默认：3000）
-- `INBOX_PATH` - inbox.md文件路径
-- `OUTBOX_PATH` - outbox.md文件路径
+- `INBOX_PATH` - inbox.md文件路径（建议：D:/WorkSpace/24houragent/inbox.md）
+- `OUTBOX_PATH` - outbox.md文件路径（建议：D:/WorkSpace/24houragent/outbox.md）
 - `CORS_ORIGIN` - 允许的跨域来源（默认：*）
 - `LOG_LEVEL` - 日志级别（默认：info）
 - `WS_HEARTBEAT` - WebSocket心跳间隔（毫秒，默认：30000）
@@ -148,6 +148,15 @@ const config = {
 - Firefox 55+
 - Safari 12+
 - Edge 79+
+
+## 远程访问（LocalTunnel）
+
+- 已提供脚本：tunnel.js（已被 .gitignore 忽略，供本地开发使用）
+- 启动步骤：
+  1) 在项目根目录先启动服务：node server.js
+  2) 另启终端运行：node tunnel.js
+  3) 访问公网地址：https://sour-dragons-tease.loca.lt
+- 健康检查：GET https://sour-dragons-tease.loca.lt/health 应返回 { status: 'ok' }
 
 ## 故障排除
 
