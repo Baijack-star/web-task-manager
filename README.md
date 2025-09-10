@@ -156,7 +156,7 @@ const config = {
   1) 在项目根目录先启动服务：node server.js
   2) 另启终端运行：node tunnel.js
   3) 访问公网地址：https://sour-dragons-tease.loca.lt
-- 健康检查：GET https://sour-dragons-tease.loca.lt/health 应返回 { status: 'ok' }
+- 健康检查：GET https://sour-dragons-tease.loca.lt/health 应返回 { status: 'healthy', timestamp: <ISO>, uptime: <seconds> }
 
 ## 故障排除
 
