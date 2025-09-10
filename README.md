@@ -126,10 +126,12 @@ web-task-manager/
 ### 默认配置
 
 ```javascript
+const path = require('path');
+
 const config = {
     port: process.env.PORT || 3000,
-    inboxPath: '../inbox.md',
-    outboxPath: '../outbox.md'
+    inboxPath: process.env.INBOX_PATH || path.join(__dirname, '..', 'inbox.md'),
+    outboxPath: process.env.OUTBOX_PATH || path.join(__dirname, '..', 'outbox.md')
 };
 ```
 
