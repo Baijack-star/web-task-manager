@@ -68,13 +68,15 @@ npm start
 1. 在任务添加表单中点击"选择文件"按钮
 2. 支持多文件选择和拖拽上传
 3. 支持常见文件格式：文档、图片、压缩包等
-4. 文件自动保存到uploads目录
+4. 单个文件最大10MB，最多5个文件
+5. 文件自动保存到uploads目录
 
 **文件下载**：
 1. 点击"文件管理"按钮查看已上传文件
 2. 点击文件名即可下载
 3. 支持智能体生成的结果文档下载
 4. 文件列表实时更新
+5. 亦可通过静态路径直接访问：`/uploads/<filename>`
 
 ## 文件结构
 
@@ -93,12 +95,15 @@ web-task-manager/
 
 ### REST API
 
+- `GET /health` - 健康检查（返回服务状态与运行时间）
+- `GET /api/status` - 获取智能体状态（outbox.md内容）
+- `GET /api/inbox-content` - 获取inbox.md解析后的结构化数据
+- `GET /api/inbox-raw` - 获取inbox.md原始Markdown
 - `GET /api/tasks` - 获取任务列表
-- `POST /api/tasks` - 添加新任务
-- `GET /api/status` - 获取智能体状态
-- `POST /api/upload` - 文件上传
+- `POST /api/tasks` - 添加新任务（支持表单提交与附件上传 attachments[]，单个≤10MB，最多5个）
 - `GET /api/files` - 获取文件列表
-- `GET /api/download/:filename` - 文件下载
+- `GET /api/files/:filename` - 下载指定文件
+- `静态 /uploads/` - 直接访问已上传文件
 
 ### WebSocket事件
 
@@ -112,6 +117,11 @@ web-task-manager/
 - `PORT` - 服务器端口（默认：3000）
 - `INBOX_PATH` - inbox.md文件路径
 - `OUTBOX_PATH` - outbox.md文件路径
+- `CORS_ORIGIN` - 允许的跨域来源（默认：*）
+- `LOG_LEVEL` - 日志级别（默认：info）
+- `WS_HEARTBEAT` - WebSocket心跳间隔（毫秒，默认：30000）
+- `RATE_LIMIT_WINDOW` - 速率限制时间窗口（毫秒，默认：900000）
+- `RATE_LIMIT_MAX` - 时间窗口内允许的最大请求数（默认：100）
 
 ### 默认配置
 

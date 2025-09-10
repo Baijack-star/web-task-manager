@@ -466,17 +466,15 @@ app.post('/api/tasks', upload.array('attachments', 5), (req, res) => {
         // 读取当前inbox.md内容
         let inboxContent = readFile(config.inboxPath);
         
-        // 查找"待处理任务"部分并插入新任务
-        const waitingTasksRegex = /(## 待处理任务\s*)(\*目前没有新任务\*)?/;
-        const match = inboxContent.match(waitingTasksRegex);
+        // 先清除“目前没有新任务”占位行（如果存在且紧随标题之后）
+        inboxContent = inboxContent.replace(/(## 待处理任务[^\S\r\n]*\r?\n)\*目前没有新任务\*\r?\n?/m, '$1');
         
-        if (match) {
-            // 替换"目前没有新任务"或在待处理任务部分后添加
-            const replacement = match[1] + taskMarkdown;
-            inboxContent = inboxContent.replace(waitingTasksRegex, replacement);
+        // 将任务插入到“## 待处理任务”标题之后，而不覆盖已有内容
+        if (/^##\s+待处理任务/m.test(inboxContent)) {
+            inboxContent = inboxContent.replace(/(##\s+待处理任务[^\S\r\n]*\r?\n)/m, `$1${taskMarkdown}`);
         } else {
-            // 如果找不到待处理任务部分，直接追加
-            inboxContent += taskMarkdown;
+            // 若不存在该分节，则补齐分节并置于文件最前方
+            inboxContent = `## 待处理任务\n${taskMarkdown}\n` + inboxContent;
         }
         
         // 写入文件
@@ -738,15 +736,36 @@ process.on('SIGINT', () => {
 });
 
 // 未捕获异常处理
+let uncaughtExceptionCount = 0;
 process.on('uncaughtException', (error) => {
+    uncaughtExceptionCount++;
     log(`未捕获异常: ${error.message}`);
     console.error(error.stack);
-    process.exit(1);
+    // 保持进程存活，避免自动退出；若异常过于频繁，进行一次优雅关闭防抖
+    if (uncaughtExceptionCount >= 5) {
+        log('未捕获异常次数过多，尝试优雅关闭以保护系统');
+        try {
+            server.close(() => {
+                log('服务器优雅关闭完成');
+            });
+        } catch (e) {
+            log(`优雅关闭过程中出现问题: ${e.message}`);
+        } finally {
+            uncaughtExceptionCount = 0;
+        }
+    }
 });
-
 process.on('unhandledRejection', (reason, promise) => {
     log(`未处理的Promise拒绝: ${reason}`);
     console.error('Promise:', promise);
+});
+
+// 增强退出追踪：记录可能的自然退出原因
+process.on('beforeExit', (code) => {
+    log(`beforeExit 事件触发，code=${code}`);
+});
+process.on('exit', (code) => {
+    log(`exit 事件触发，code=${code}`);
 });
 
 module.exports = { app, server, wss };
